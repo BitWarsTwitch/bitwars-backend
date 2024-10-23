@@ -10,6 +10,7 @@ load_dotenv()
 
 
 URL_DATABASE = os.getenv("MYSQL_BASE_URL")
+print("Creating database engine for %s", URL_DATABASE)
 engine = create_engine(URL_DATABASE)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
