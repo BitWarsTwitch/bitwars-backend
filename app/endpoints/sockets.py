@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 import socketio
 from fastapi import APIRouter, Depends
@@ -77,17 +76,13 @@ async def spawn_attack(
         attack.update({"side": "right", "channel_id": friend_session.channel_id})
         await _emit_attack(sio, attack, friend_session.channel_id)
 
-    # Create background task for health updates
-    async def update_health():
-        await asyncio.sleep(5)
-        host_session.health += damage
-        if is_friend_session:
-            friend_session.health -= damage
-        db.commit()
+    await sio.sleep(5)
+    host_session.health = min(100, host_session.health + damage)
 
-    # Schedule the background task
-    asyncio.create_task(update_health())
+    if is_friend_session:
+        friend_session.health = max(0, friend_session.health - damage)
 
+    db.commit()
     return {"message": "Attack created with ID: {} was successful".format(attack["id"])}
 
 
