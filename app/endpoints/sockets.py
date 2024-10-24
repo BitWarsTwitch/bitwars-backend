@@ -3,7 +3,7 @@ import socketio
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import get_db, SessionLocal
 from app.utils import compute_damage_based_on_attack_id
 from models.channel_session import ChannelSessionModel
 
@@ -13,14 +13,15 @@ sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 socket_app = socketio.ASGIApp(sio)
 
 
-@router.post("/spawn_attack")
-async def spawn_attack(
-    sender_session_id: str,
-    attack_id: int,
-    user_name: str,
-    db: Session = Depends(get_db),
-):
-    damage = compute_damage_based_on_attack_id(attack_id)
+async def _emit_attack(sio, attack_data, room):
+    await sio.emit("attack", attack_data, room=room)
+
+
+async def _emit_damage(sio, damage_amount, side, room):
+    await sio.emit("damage", {"damage": damage_amount, "side": side}, room=room)
+
+
+async def _get_sessions(db, sender_session_id):
     host_session = (
         db.query(ChannelSessionModel)
         .filter(ChannelSessionModel.channel_id == sender_session_id)
@@ -28,7 +29,7 @@ async def spawn_attack(
     )
 
     if not host_session:
-        return {"message": "Session not found"}
+        return None, None, False
 
     friend_session = (
         db.query(ChannelSessionModel)
@@ -40,7 +41,24 @@ async def spawn_attack(
         friend_session and friend_session.friend_code == host_session.channel_id
     )
 
-    # emit host attack on A
+    return host_session, friend_session, is_friend_session
+
+
+@router.post("/spawn_attack")
+async def spawn_attack(
+    sender_session_id: str,
+    attack_id: int,
+    user_name: str,
+    db: Session = Depends(get_db),
+):
+    damage = compute_damage_based_on_attack_id(attack_id)
+    host_session, friend_session, is_friend_session = await _get_sessions(
+        db, sender_session_id
+    )
+
+    if not host_session:
+        return {"message": "Session not found"}
+
     attack = {
         "id": str(uuid.uuid4()),
         "channel_id": host_session.channel_id,
@@ -48,32 +66,33 @@ async def spawn_attack(
         "side": "left",
         "user_name": user_name,
     }
-    await sio.emit("attack", attack, room=host_session.channel_id)
+
+    # emit host attack on A
+    await _emit_attack(sio, attack, host_session.channel_id)
 
     if is_friend_session:
         # emit enemy attack on B
         attack.update({"side": "right", "channel_id": friend_session.channel_id})
-        await sio.emit("attack", attack, room=host_session.channel_id)
+        await _emit_attack(sio, attack, friend_session.channel_id)
 
     # 5 seconds later emit enemy damage on A
     await sio.sleep(5)
-    await sio.emit(
-        "damage", {"damage": damage, "side": "right"}, room=host_session.channel_id
-    )
+    await _emit_damage(sio, damage, "right", host_session.channel_id)
+    # reduce health of B and increase health of A
+    host_session.health += damage
 
     if is_friend_session:
         # emit host damage on B
-        await sio.emit(
-            "damage", {"damage": damage, "side": "left"}, room=friend_session.channel_id
-        )
+        friend_session.health -= damage
+        await _emit_damage(sio, -damage, "left", friend_session.channel_id)
 
+    db.commit()
     return {"message": "Attack created with ID: {} was successful".format(attack["id"])}
 
 
 @sio.event
 async def connect(sid, env):
     print("Client connected:", sid)
-
     # Assuming the client sends the channel_id as a query parameter
     query_string = env.get("QUERY_STRING", "")
     channel_id = (
@@ -81,8 +100,36 @@ async def connect(sid, env):
         if "channel=" in query_string
         else ""
     )
-    print("Room:", channel_id)
     await sio.enter_room(sid, channel_id)
+    db = SessionLocal()
+
+    # Fetch current session from database
+    session = (
+        db.query(ChannelSessionModel)
+        .filter(ChannelSessionModel.channel_id == channel_id)
+        .first()
+    )
+
+    # Initialize session data with database values
+    session_data = {
+        "leftName": session.name,
+        "rightName": "Auto",
+        "health": session.health if session else 50,
+    }
+
+    if session.friend_code:
+        # Fetch friend session from database
+        friend_session = (
+            db.query(ChannelSessionModel)
+            .filter(ChannelSessionModel.channel_id == session.friend_code)
+            .first()
+        )
+
+        if friend_session:
+            session_data["rightName"] = friend_session.name
+
+    db.close()
+    await sio.emit("initialize", session_data, to=sid)
 
 
 @sio.event

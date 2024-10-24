@@ -7,6 +7,6 @@ class ChannelSessionModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     channel_id = Column(String(255), primary_key=True)
-    friend_code = Column(String)
-    total_health = Column(Integer)
-    current_bit_count = Column(Integer)
+    name = Column(String(45), nullable=True)
+    health = Column(Integer)
+    friend_code = Column(String, nullable=True)

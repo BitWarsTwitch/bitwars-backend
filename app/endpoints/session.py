@@ -22,8 +22,8 @@ def create_channel_session(
     db_session = ChannelSessionModel(
         channel_id=session.channel_id,
         friend_code=session.friend_code,
-        total_health=session.total_health,
-        current_bit_count=session.current_bit_count,
+        heath=session.health,
+        name=session.name,
     )
     db.add(db_session)
     db.commit()
@@ -44,8 +44,8 @@ def update_channel_session(
         raise HTTPException(status_code=404, detail="Session not found")
 
     db_session.friend_code = session.friend_code
-    db_session.total_health = session.total_health
-    db_session.current_bit_count = session.current_bit_count
+    db_session.health = session.health
+    db_session.name = session.name
 
     db.commit()
     db.refresh(db_session)
