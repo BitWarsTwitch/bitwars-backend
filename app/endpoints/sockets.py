@@ -76,13 +76,18 @@ async def spawn_attack(
         attack.update({"side": "right", "channel_id": friend_session.channel_id})
         await _emit_attack(sio, attack, friend_session.channel_id)
 
-    await sio.sleep(5)
-    host_session.health += damage
+    # Create background task for health updates
+    async def update_health():
+        await sio.sleep(5)
+        async with db.begin():
+            host_session.health += damage
+            if is_friend_session:
+                friend_session.health -= damage
+            db.commit()
 
-    if is_friend_session:
-        friend_session.health -= damage
+    # Schedule the background task
+    sio.start_background_task(update_health)
 
-    db.commit()
     return {"message": "Attack created with ID: {} was successful".format(attack["id"])}
 
 
