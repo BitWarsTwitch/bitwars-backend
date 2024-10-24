@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.utils import compute_damage_based_on_attack_id
 from models.channel_session import ChannelSessionModel
 
 router = APIRouter()
@@ -16,34 +17,57 @@ socket_app = socketio.ASGIApp(sio)
 async def spawn_attack(
     sender_session_id: str,
     attack_id: int,
-    damage: int,
     user_name: str,
     db: Session = Depends(get_db),
 ):
-    attack = {
-        "id": str(uuid.uuid4()),
-        "channel_id": sender_session_id,
-        "attack_id": attack_id,
-        "damage": damage,
-        "user_name": user_name,
-    }
-    # Emit the attack event to the specific room identified by sender_session_id
-    await sio.emit("test", room=sender_session_id)
-    await sio.emit("attack", attack, room=sender_session_id)
-    return {"message": "Attack created with ID: {}".format(sender_session_id)}
-
-
-@router.post("/damage_session")
-async def damage_session(
-    channel_id: str,
-    bit_count: int,
-    db: Session = Depends(get_db),
-):
-    current_session = (
+    damage = compute_damage_based_on_attack_id(attack_id)
+    host_session = (
         db.query(ChannelSessionModel)
-        .filter(ChannelSessionModel.channel_id == channel_id)
+        .filter(ChannelSessionModel.channel_id == sender_session_id)
         .first()
     )
+
+    if not host_session:
+        return {"message": "Session not found"}
+
+    friend_session = (
+        db.query(ChannelSessionModel)
+        .filter(ChannelSessionModel.channel_id == host_session.friend_code)
+        .first()
+    )
+
+    is_friend_session = (
+        friend_session and friend_session.friend_code == host_session.channel_id
+    )
+
+    # emit host attack on A
+    attack = {
+        "id": str(uuid.uuid4()),
+        "channel_id": host_session.channel_id,
+        "attack_id": attack_id,
+        "side": "left",
+        "user_name": user_name,
+    }
+    await sio.emit("attack", attack, room=host_session.channel_id)
+
+    if is_friend_session:
+        # emit enemy attack on B
+        attack.update({"side": "right", "channel_id": friend_session.channel_id})
+        await sio.emit("attack", attack, room=host_session.channel_id)
+
+    # 5 seconds later emit enemy damage on A
+    await sio.sleep(5)
+    await sio.emit(
+        "damage", {"damage": damage, "side": "right"}, room=host_session.channel_id
+    )
+
+    if is_friend_session:
+        # emit host damage on B
+        await sio.emit(
+            "damage", {"damage": damage, "side": "left"}, room=friend_session.channel_id
+        )
+
+    return {"message": "Attack created with ID: {} was successful".format(attack["id"])}
 
 
 @sio.event
