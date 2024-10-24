@@ -65,6 +65,7 @@ async def spawn_attack(
         "attack_id": attack_id,
         "side": "left",
         "user_name": user_name,
+        "damage": damage,
     }
 
     # emit host attack on A
@@ -75,16 +76,11 @@ async def spawn_attack(
         attack.update({"side": "right", "channel_id": friend_session.channel_id})
         await _emit_attack(sio, attack, friend_session.channel_id)
 
-    # 5 seconds later emit enemy damage on A
     await sio.sleep(5)
-    await _emit_damage(sio, damage, "right", host_session.channel_id)
-    # reduce health of B and increase health of A
     host_session.health += damage
 
     if is_friend_session:
-        # emit host damage on B
         friend_session.health -= damage
-        await _emit_damage(sio, -damage, "left", friend_session.channel_id)
 
     db.commit()
     return {"message": "Attack created with ID: {} was successful".format(attack["id"])}
