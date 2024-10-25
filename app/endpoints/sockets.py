@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db, SessionLocal
 from app.utils import compute_damage_based_on_attack_id
 from models.channel_session import ChannelSessionModel
+from schemas.attack import AttackPayload
 
 router = APIRouter()
 
@@ -46,14 +47,12 @@ async def _get_sessions(db, sender_session_id):
 
 @router.post("/spawn_attack")
 async def spawn_attack(
-    sender_session_id: str,
-    attack_id: int,
-    user_name: str,
+    payload: AttackPayload,
     db: Session = Depends(get_db),
 ):
-    damage = compute_damage_based_on_attack_id(attack_id)
+    damage = compute_damage_based_on_attack_id(payload.attack_id)
     host_session, friend_session, is_friend_session = await _get_sessions(
-        db, sender_session_id
+        db, payload.sender_session_id
     )
 
     if not host_session:
@@ -62,9 +61,9 @@ async def spawn_attack(
     attack = {
         "id": str(uuid.uuid4()),
         "channel_id": host_session.channel_id,
-        "attack_id": attack_id,
+        "attack_id": payload.attack_id,
         "side": "left",
-        "user_name": user_name,
+        "user_name": payload.user_name,
         "damage": damage,
     }
 
