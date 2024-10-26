@@ -1,32 +1,25 @@
-import httpx
-import jwt
-from fastapi import Depends, HTTPException, Security
+import os
+import base64
+from fastapi import HTTPException
 from fastapi.security import HTTPBearer
+from dotenv import load_dotenv
+import jwt
 
-security = HTTPBearer()
+load_dotenv()
+auth_scheme = HTTPBearer()
+
 TWITCH_JWK_URL = "https://id.twitch.tv/oauth2/keys"
 
 
-async def fetch_public_key():
-    async with httpx.AsyncClient() as client:
-        response = await client.get(TWITCH_JWK_URL)
-        jwks = response.json()["keys"]
-        return {key["kid"]: key for key in jwks}  # Caches JWK by Key ID (kid)
+twitch_ext_secret = base64.b64decode(os.getenv("TWITCH_EXT_SECRET"))
 
 
-async def verify_jwt(token: str = Security(security), jwks=Depends(fetch_public_key)):
+def verify_and_decode_jwt(token: str):
     try:
-        # Decode the token with the cached JWKs
-        kid = jwt.get_unverified_header(token.credentials)["kid"]
-        public_key = jwt.algorithms.RSAAlgorithm.from_jwk(jwks[kid])
-        decoded = jwt.decode(
-            token.credentials,
-            public_key,
-            algorithms=["RS256"],
-            audience="YOUR_CLIENT_ID",
-        )
-        return decoded
+        # Decode the token using the secret and HS256 algorithm
+        payload = jwt.decode(token, twitch_ext_secret, algorithms=["HS256"])
+        return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=403, detail="Invalid token")

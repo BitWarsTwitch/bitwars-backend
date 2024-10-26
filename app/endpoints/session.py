@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from app.core.auth import auth_scheme, verify_and_decode_jwt
 from app.core.database import get_db
 from models.channel_session import ChannelSessionModel
 from schemas.channel_session import ChannelSession as ChannelSessionSchema
@@ -13,6 +14,26 @@ router = APIRouter()
 def get_all_channel_sessions(db: Session = Depends(get_db)):
     channel_sessions = db.query(ChannelSessionModel).all()
     return channel_sessions
+
+
+@router.get("/sessions/{channel_id}", response_model=ChannelSessionSchema)
+def get_channel_session(
+    channel_id: str,
+    db: Session = Depends(get_db),
+    token: str = Depends(auth_scheme),
+):
+    # Extract token from Authorization header
+    jwt_token = token.credentials
+    payload = verify_and_decode_jwt(jwt_token)
+
+    db_session = (
+        db.query(ChannelSessionModel)
+        .filter(ChannelSessionModel.channel_id == channel_id)
+        .first()
+    )
+    if not db_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return db_session
 
 
 @router.post("/sessions", response_model=ChannelSessionSchema)
