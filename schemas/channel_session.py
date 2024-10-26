@@ -6,6 +6,7 @@ class ChannelSessionBase(BaseModel):
     channel_id: str
     friend_code: Optional[str]
     name: Optional[str]
+    enemy_name: Optional[str]
     health: int
 
 

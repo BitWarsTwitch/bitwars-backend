@@ -24,7 +24,7 @@ def get_channel_session(
 ):
     # Extract token from Authorization header
     jwt_token = token.credentials
-    payload = verify_and_decode_jwt(jwt_token)
+    verify_and_decode_jwt(jwt_token)
 
     db_session = (
         db.query(ChannelSessionModel)
@@ -36,20 +36,25 @@ def get_channel_session(
         db_session = ChannelSessionModel(channel_id=channel_id, health=50)
         db.add(db_session)
         db.commit()
-        db.refresh(db_session)
 
     return db_session
 
 
 @router.post("/sessions", response_model=ChannelSessionSchema)
 def create_channel_session(
-    session: ChannelSessionCreate, db: Session = Depends(get_db)
+    session: ChannelSessionCreate,
+    db: Session = Depends(get_db),
+    token: str = Depends(auth_scheme),
 ):
+    jwt_token = token.credentials
+    verify_and_decode_jwt(jwt_token)
+
     db_session = ChannelSessionModel(
         channel_id=session.channel_id,
         friend_code=session.friend_code,
         heath=session.health,
         name=session.name,
+        enemy_name=session.enemy_name,
     )
     db.add(db_session)
     db.commit()
@@ -59,8 +64,14 @@ def create_channel_session(
 
 @router.put("/sessions/{channel_id}", response_model=ChannelSessionSchema)
 def update_channel_session(
-    channel_id: str, session: ChannelSessionCreate, db: Session = Depends(get_db)
+    channel_id: str,
+    session: ChannelSessionCreate,
+    db: Session = Depends(get_db),
+    token: str = Depends(auth_scheme),
 ):
+    jwt_token = token.credentials
+    verify_and_decode_jwt(jwt_token)
+
     db_session = (
         db.query(ChannelSessionModel)
         .filter(ChannelSessionModel.channel_id == channel_id)
@@ -72,6 +83,10 @@ def update_channel_session(
     db_session.friend_code = session.friend_code
     db_session.health = session.health
     db_session.name = session.name
+    db_session.enemy_name = session.enemy_name
+
+    print(db_session.__dict__)
+    print(session.__dict__)
 
     db.commit()
     db.refresh(db_session)
