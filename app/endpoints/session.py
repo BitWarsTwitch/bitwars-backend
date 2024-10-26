@@ -32,7 +32,12 @@ def get_channel_session(
         .first()
     )
     if not db_session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        # Create new session with default health of 50
+        db_session = ChannelSessionModel(channel_id=channel_id, health=50)
+        db.add(db_session)
+        db.commit()
+        db.refresh(db_session)
+
     return db_session
 
 
