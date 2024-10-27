@@ -26,7 +26,11 @@ async def terms_of_service():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080"],
+    allow_origins=[
+        "http://localhost:8080",
+        "https://dashboard.twitch.tv/",
+        "https://www.twitch.tv/",
+    ],
     allow_credentials=True,
     allow_methods=["*"],  # allow all HTTP methods
     allow_headers=["*"],  # allow all headers
