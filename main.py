@@ -29,7 +29,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:8080",
         "https://dashboard.twitch.tv/",
-        "https://www.twitch.tv/",
+        "https://*.twitch.tv/",
+        "https://*.ext-twitch.tv",
     ],
     allow_credentials=True,
     allow_methods=["*"],  # allow all HTTP methods
