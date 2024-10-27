@@ -76,12 +76,35 @@ async def spawn_attack(
         await _emit_attack(sio, attack, friend_session.channel_id)
 
     await sio.sleep(5)
+    new_db = SessionLocal()
+    host_session, friend_session, is_friend_session = await _get_sessions(
+        new_db, payload.sender_session_id
+    )
+
     host_session.health = min(100, host_session.health + damage)
 
     if is_friend_session:
         friend_session.health = max(0, friend_session.health - damage)
 
-    db.commit()
+    if friend_session.health == 0:
+        await sio.emit(
+            "game_over",
+            {"winner": host_session.name},
+            room=host_session.channel_id,
+        )
+        await sio.emit(
+            "game_over",
+            {"winner": host_session.name},
+            room=friend_session.channel_id,
+        )
+        host_session.health = 50
+        friend_session.health = 50
+        new_db.commit()
+        new_db.close()
+        return {"message": "Game Over"}
+
+    new_db.commit()
+    new_db.close()
     return {"message": "Attack created with ID: {} was successful".format(attack["id"])}
 
 
