@@ -7,10 +7,6 @@ from app.endpoints.session import router as channel_session_router
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
 
-import pymysql
-
-pymysql.install_as_MySQLdb()
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8080"],
