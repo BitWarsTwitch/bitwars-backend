@@ -128,6 +128,12 @@ async def connect(sid, env):
         .first()
     )
 
+    if not session:
+        # Create new session with default health of 50
+        session = ChannelSessionModel(channel_id=channel_id, health=50)
+        db.add(session)
+        db.commit()
+
     # Initialize session data with database values
     session_data = {
         "leftName": session.name,
