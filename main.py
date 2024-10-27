@@ -1,11 +1,23 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from app.core.database import Base, engine
 from app.endpoints.sockets import router as socket_router, socket_app
 from app.endpoints.session import router as channel_session_router
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+# Add a direct route for privacy policy
+@app.get("/privacy-policy")
+async def privacy_policy():
+    return FileResponse("static/privacy_policy.html")
+
 
 app.add_middleware(
     CORSMiddleware,
