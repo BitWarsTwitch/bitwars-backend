@@ -13,10 +13,15 @@ Base.metadata.create_all(bind=engine)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# Add a direct route for privacy policy
+# Add a direct route for privacy policy and toc
 @app.get("/privacy-policy")
 async def privacy_policy():
     return FileResponse("static/privacy_policy.html")
+
+
+@app.get("/terms-of-service")
+async def terms_of_service():
+    return FileResponse("static/toc.html")
 
 
 app.add_middleware(
