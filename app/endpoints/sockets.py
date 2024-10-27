@@ -42,6 +42,9 @@ async def _get_sessions(db, sender_session_id):
         friend_session and friend_session.friend_code == host_session.channel_id
     )
 
+    if not friend_session:
+        return host_session, None, False
+
     return host_session, friend_session, is_friend_session
 
 
@@ -81,24 +84,28 @@ async def spawn_attack(
         new_db, payload.sender_session_id
     )
 
+    if not host_session:
+        return {"message": "Session not found"}
+
     host_session.health = min(100, host_session.health + damage)
 
     if is_friend_session:
         friend_session.health = max(0, friend_session.health - damage)
 
-    if friend_session.health == 0:
+    if host_session.health == 100:
         await sio.emit(
             "game_over",
             {"winner": host_session.name},
             room=host_session.channel_id,
         )
-        await sio.emit(
-            "game_over",
-            {"winner": host_session.name},
-            room=friend_session.channel_id,
-        )
         host_session.health = 50
-        friend_session.health = 50
+        if is_friend_session:
+            await sio.emit(
+                "game_over",
+                {"winner": host_session.name},
+                room=friend_session.channel_id,
+            )
+            friend_session.health = 50
         new_db.commit()
         new_db.close()
         return {"message": "Game Over"}
