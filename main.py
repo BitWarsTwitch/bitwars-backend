@@ -32,7 +32,7 @@ app.add_middleware(
         "https://dashboard.twitch.tv",
         "https://twitch.tv",
     ],
-    allow_origins_regex=r"https?://.*\.ext-twitch\.tv$",
+    allow_origin_regex=r"https?://.*\.ext-twitch\.tv$",
     allow_credentials=True,
     allow_methods=["*"],  # allow all HTTP methods
     allow_headers=["*"],  # allow all headers
