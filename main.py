@@ -28,12 +28,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:8080",
-        "https://dashboard.twitch.tv/",
-        "https://*.twitch.tv/",
-        "https://*.ext-twitch.tv",
-        "https://a7x4e30v7yvxn69xwyrjstxzjuc1go.ext-twitch.tv/",
+        "https://a7x4e30v7yvxn69xwyrjstxzjuc1go.ext-twitch.tv",
+        "https://dashboard.twitch.tv",
         "https://twitch.tv",
     ],
+    allow_origins_regex=r"https?://.*\.ext-twitch\.tv$",
     allow_credentials=True,
     allow_methods=["*"],  # allow all HTTP methods
     allow_headers=["*"],  # allow all headers
